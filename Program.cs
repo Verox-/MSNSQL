@@ -45,7 +45,7 @@ namespace MSNSQL
             }
             catch
             {
-                Console.Read();
+                //Console.Read();
                 return;
             }
 
@@ -68,16 +68,14 @@ namespace MSNSQL
             catch
             {
                 logsys.LogMessage(Logger.LogLevel.FATAL, "An unknown exception occurred. The program cannot continue and will shut down.");
-                Console.Read();
+                //Console.Read();
                 return;
             }
 
             logsys.LogMessage(Logger.LogLevel.INFORMATION, "Operation finished. Closing handles and shutting down.");
 
             logsys.LogMessage(Logger.LogLevel.INFORMATION, "Shut down complete. Press any key to close.");
-            Console.Read();
-
-            
+            //Console.Read();
         }
 
         static Dictionary<string, string> ProcessArgs(string[] args)
@@ -107,6 +105,4 @@ namespace MSNSQL
 
         }
     }
-
-
 }

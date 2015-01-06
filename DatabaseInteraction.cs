@@ -17,7 +17,17 @@ namespace MSNSQL
         MySqlConnection _con;
         MySqlDataReader _reader;
         MySqlCommand _command;
-        Hashtable filelookup = new Hashtable();
+        //Hashtable filelookup = new Hashtable();
+
+        // Statistics
+        int numErrors = 0;
+        int numWarnings = 0;
+        int numMoves = 0;
+        int numFailedMoves = 0;
+        int numDBMissions = 0;
+        int numFileMissions = 0;
+
+        string[] files = null;
 
         internal DatabaseInteraction(Logger logs)
         {
@@ -90,10 +100,8 @@ namespace MSNSQL
                 throw new Exception("FATAL ERROR");
             }
 
-            logsys.LogMessage(Logger.LogLevel.INFORMATION, "Database query successful." + _reader.RecordsAffected);
+            logsys.LogMessage(Logger.LogLevel.INFORMATION, "Database query successful." + _reader.VisibleFieldCount);
             logsys.LogMessage(Logger.LogLevel.INFORMATION, "Getting file list (all ending in .pbo, non-recursive) in live mission directory...");
-
-            string[] files = null;
 
             try
             {
@@ -106,16 +114,7 @@ namespace MSNSQL
             }
 
             logsys.LogMessage(Logger.LogLevel.INFORMATION, "Success accessing file list.");
-            logsys.LogMessage(Logger.LogLevel.INFORMATION, "Creating file lookup table...");
             
-
-            foreach (string file in files)
-            {
-                filelookup.Add(Path.GetFileName(file), true);
-            }
-
-            logsys.LogMessage(Logger.LogLevel.INFORMATION, "File look up table created. File count: " + filelookup.Count);
-            logsys.LogMessage(Logger.LogLevel.INFORMATION, "Checking for and moving valid matches...");
             //try
             //{
                 CheckMissions checker;
@@ -123,10 +122,12 @@ namespace MSNSQL
                 // 
                 if (UserSettings.SETTINGS.PROGRAM_BEHAVIOR == UserSettings.Behavior.BLACKLIST)
                 {
+                    logsys.LogMessage(Logger.LogLevel.DEBUG, "Program in BLACKLIST mode.");
                     checker = new CheckMissions(CheckBlacklist);
                 }
                 else
                 {
+                    logsys.LogMessage(Logger.LogLevel.DEBUG, "Program in WHITELIST mode.");
                     checker = new CheckMissions(CheckWhitelist);
                 }
 
@@ -152,35 +153,86 @@ namespace MSNSQL
             {
                 if (!Directory.Exists(UserSettings.SETTINGS.MISSION_BROKEN_DIRECTORY))
                 {
-                    logsys.LogMessage(Logger.LogLevel.ERROR, "The move destination directory does not exist or is not accessable.");
+                    logsys.LogMessage(Logger.LogLevel.ERROR, "The move destination directory does not exist or is not accessable. Directory: " + UserSettings.SETTINGS.MISSION_BROKEN_DIRECTORY);
+                    numFailedMoves++;
+                    numErrors++;
+                    return;
                 }
-                File.Move(UserSettings.SETTINGS.MISSION_LIVE_DIRECTORY + missionName, UserSettings.SETTINGS.MISSION_BROKEN_DIRECTORY + missionName + ".broken");
+
+                string source = Path.Combine(UserSettings.SETTINGS.MISSION_LIVE_DIRECTORY, missionName);
+                string destination = Path.Combine(UserSettings.SETTINGS.MISSION_BROKEN_DIRECTORY, missionName + ".broken");
+
+                File.Move(source, destination);
+                numMoves++;
             }
             catch (Exception ex)
             {
                 logsys.LogMessage(Logger.LogLevel.ERROR, "An exception occured moving mission " + missionName + ". No operation was performed on this mission. The exception was: " + ex.Message);
-
+                numFailedMoves++;
+                numErrors++;
             }
+        }
+
+        private void CreateHashtable()
+        {
+
         }
 
         private void CheckWhitelist(MySqlDataReader _reader)
         {
+            // Initialize a hashtable of all meeshuns in the database
+            Hashtable _databaseMissions = new Hashtable();
+
+            // We need to create a lookup table of all missions in the database. 
             while (_reader.Read())
             {
-                if (filelookup.ContainsKey(_reader[0]))
+                try
                 {
-                    logsys.LogMessage(Logger.LogLevel.DEBUG, "Matched: " + _reader[0]);
+                    _databaseMissions.Add(_reader[0], true);
+                }
+                catch (Exception ex)
+                {
+                    logsys.LogMessage(Logger.LogLevel.ERROR, "Error adding to lookup table, skipping entry. The error was: " + ex.Message);
+                }
+            }
+            
+
+            // Loop through every mission inside the live mission directory
+            // If it's found in the database, it's safe
+            // If it's not found in the database, move it.
+            logsys.LogMessage(Logger.LogLevel.INFORMATION, "Checking for and moving valid matches...");
+            foreach (string file in files)
+            {
+                string filename = Path.GetFileName(file);
+
+                if (_databaseMissions.ContainsKey(filename))
+                {
+                    logsys.LogMessage(Logger.LogLevel.DEBUG, "Matched: " + filename);
                 }
                 else
                 {
-                    logsys.LogMessage(Logger.LogLevel.INFORMATION, "NO MATCH FOR " + _reader[0] + ". Moving.");
-                    MoveFile(_reader[0].ToString());
+                    logsys.LogMessage(Logger.LogLevel.INFORMATION, "NO MATCH IN DB FOR " + filename + ". Moving.");
+                    MoveFile(filename);
                 }
             }
         }
 
         private void CheckBlacklist(MySqlDataReader _reader)
         {
+            Hashtable filelookup = new Hashtable();
+
+            // Create a lookup table of missions in the live directory.
+            logsys.LogMessage(Logger.LogLevel.INFORMATION, "Creating file lookup table...");
+
+            // Loop through each file in the directory and add it to the table.
+            foreach (string file in files)
+            {
+                filelookup.Add(Path.GetFileName(file), true);
+            }
+
+            logsys.LogMessage(Logger.LogLevel.INFORMATION, "File look up table created. File count: " + filelookup.Count);
+
+            logsys.LogMessage(Logger.LogLevel.INFORMATION, "Checking for and moving valid matches...");
             while (_reader.Read())
             {
                 if (filelookup.ContainsKey(_reader[0]))

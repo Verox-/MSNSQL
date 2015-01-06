@@ -29,5 +29,5 @@ LIVE_MISSION_DIRECTORY=Directory, with trailing slash, to the directory containi
 BROKEN_MISSION_DIRECTORY=Directory, with trailing slash, to the directory missions will be moved to.<br/ >
 
 ####[PROGRAM]
-LOGLEVEL=Minimum log message severity to display. Avalable values are DEBUG, INFORMATION, WARNING, ERROR, CRITICAL and FATAL.
-BEHAVIOR=Defines the matching moving mode of the program. Details below. Available values are WHITELIST and BLACKLIST.
+LOGLEVEL=Minimum log message severity to display. Avalable values are DEBUG, INFORMATION, WARNING, ERROR, CRITICAL and FATAL.<br/ >
+BEHAVIOR=Defines the matching moving mode of the program. Details below. Available values are WHITELIST and BLACKLIST.<br/ >
